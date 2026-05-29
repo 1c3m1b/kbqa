@@ -8,7 +8,9 @@ import sys
 import subprocess
 import argparse
 
-virtuosoPath = "../virtuoso-opensource"
+# virtuosoPath = "../virtuoso-opensource"
+virtuosoPath = "/usr"
+
 if not os.path.exists(virtuosoPath):
   print(f"{virtuosoPath} does not exist")
   sys.exit(1)
