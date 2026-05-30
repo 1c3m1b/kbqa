@@ -8,11 +8,16 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
+# SYSTEM_PROMPT = """You answer knowledge-base-style factual questions.
+# Do not use tools, search, retrieved documents, or external knowledge bases.
+# Return only a JSON object with an "answers" list.
+# Do not include explanations."""
 SYSTEM_PROMPT = """You answer knowledge-base-style factual questions.
 Do not use tools, search, retrieved documents, or external knowledge bases.
 Return only a JSON object with an "answers" list.
+Each answer must be a short canonical entity name, value, date, number, or type.
+Do not return full sentences.
 Do not include explanations."""
-
 
 def load_questions(dataset, input_file):
     with open(input_file, "r", encoding="utf-8") as f:
@@ -154,7 +159,7 @@ def main():
     parser.add_argument("--input_file", required=True)
     parser.add_argument("--model_path", required=True)
     parser.add_argument("--output_file", required=True)
-    parser.add_argument("--max_new_tokens", type=int, default=128)
+    parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument(
         "--torch_dtype",
