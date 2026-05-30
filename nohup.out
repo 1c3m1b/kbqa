@@ -1,0 +1,50 @@
+FlashAttention-2 is not installed, ignore this if you are not using FlashAttention.
+Traceback (most recent call last):
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/import_utils.py", line 192, in _get_module
+    return importlib.import_module("." + module_name, self.__name__)
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1014, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 843, in exec_module
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/trainer/ppo_config.py", line 25, in <module>
+    from trl.trainer.utils import exact_div
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/trainer/utils.py", line 39, in <module>
+    from transformers.utils import (
+ImportError: cannot import name 'is_torch_mlu_available' from 'transformers.utils' (/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/transformers/utils/__init__.py)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "LLMs/LLaMA/src/train_bash.py", line 3, in <module>
+    from llmtuner import run_exp
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/__init__.py", line 3, in <module>
+    from llmtuner.api import create_app
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/api/__init__.py", line 1, in <module>
+    from llmtuner.api.app import create_app
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/api/app.py", line 9, in <module>
+    from llmtuner.chat import ChatModel
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/chat/__init__.py", line 1, in <module>
+    from llmtuner.chat.stream_chat import ChatModel
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/chat/stream_chat.py", line 8, in <module>
+    from llmtuner.tuner.core import get_infer_args, load_model_and_tokenizer
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/tuner/__init__.py", line 1, in <module>
+    from llmtuner.tuner.tune import export_model, run_exp
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/tuner/tune.py", line 9, in <module>
+    from llmtuner.tuner.ppo import run_ppo
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/tuner/ppo/__init__.py", line 1, in <module>
+    from llmtuner.tuner.ppo.workflow import run_ppo
+  File "/workspace/code/KG/ChatKBQA/LLMs/LLaMA/src/llmtuner/tuner/ppo/workflow.py", line 4, in <module>
+    from trl import PPOConfig
+  File "<frozen importlib._bootstrap>", line 1039, in _handle_fromlist
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/import_utils.py", line 183, in __getattr__
+    value = getattr(module, name)
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/import_utils.py", line 182, in __getattr__
+    module = self._get_module(self._class_to_module[name])
+  File "/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/trl/import_utils.py", line 194, in _get_module
+    raise RuntimeError(
+RuntimeError: Failed to import trl.trainer.ppo_config because of the following error (look up to see its traceback):
+cannot import name 'is_torch_mlu_available' from 'transformers.utils' (/root/miniconda3/envs/chatkbqa/lib/python3.8/site-packages/transformers/utils/__init__.py)
