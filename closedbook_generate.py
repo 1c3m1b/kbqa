@@ -103,6 +103,51 @@ def generate_one(model, tokenizer, question, max_new_tokens):
     return tokenizer.decode(generated, skip_special_tokens=True).strip()
 
 
+def build_prompt(tokenizer, question):
+    messages = build_messages(question)
+
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+    except TypeError:
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+
+def generate_batch(model, tokenizer, questions, max_new_tokens):
+    prompts = [build_prompt(tokenizer, question) for question in questions]
+    inputs = tokenizer(
+        prompts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+    ).to(model.device)
+
+    prompt_width = inputs["input_ids"].shape[-1]
+
+    with torch.inference_mode():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+
+    responses = []
+    for output in outputs:
+        generated = output[prompt_width:]
+        responses.append(tokenizer.decode(generated, skip_special_tokens=True).strip())
+
+    return responses
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", required=True, choices=["WebQSP", "CWQ"])
@@ -110,6 +155,7 @@ def main():
     parser.add_argument("--model_path", required=True)
     parser.add_argument("--output_file", required=True)
     parser.add_argument("--max_new_tokens", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument(
         "--torch_dtype",
         default="bfloat16",
@@ -124,6 +170,10 @@ def main():
     }
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         torch_dtype=dtype_map[args.torch_dtype],
@@ -135,18 +185,25 @@ def main():
     examples = load_questions(args.dataset, args.input_file)
 
     results = []
-    for ex in tqdm(examples, desc=f"Generating {args.dataset}"):
-        raw = generate_one(model, tokenizer, ex["question"], args.max_new_tokens)
-        pred_answers = parse_answers(raw)
+    for start in tqdm(range(0, len(examples), args.batch_size), desc=f"Generating {args.dataset}"):
+        batch = examples[start:start + args.batch_size]
+        questions = [ex["question"] for ex in batch]
 
-        results.append(
-            {
-                "qid": ex["qid"],
-                "question": ex["question"],
-                "prediction_raw": raw,
-                "pred_answers": pred_answers,
-            }
-        )
+        if args.batch_size == 1:
+            raws = [generate_one(model, tokenizer, questions[0], args.max_new_tokens)]
+        else:
+            raws = generate_batch(model, tokenizer, questions, args.max_new_tokens)
+
+        for ex, raw in zip(batch, raws):
+            pred_answers = parse_answers(raw)
+            results.append(
+                {
+                    "qid": ex["qid"],
+                    "question": ex["question"],
+                    "prediction_raw": raw,
+                    "pred_answers": pred_answers,
+                }
+            )
 
     output_dir = os.path.dirname(args.output_file)
     if output_dir:
