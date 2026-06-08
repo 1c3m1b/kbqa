@@ -71,7 +71,7 @@ def start(dbPath, port):
         f"DisableTcpSocket = 0\n"
         f"ServerThreads = 100 ; increased from 20\n"
         f"CheckpointInterval = 60\n"
-        f"O_DIRECT = 0 ; increased from 0\n"
+        f"O_DIRECT = 1 ; increased from 0\n"
         f"CaseMode = 2\n"
         f"MaxStaticCursorRows = 100000\n"
         f"CheckpointAuditTrail = 0\n"

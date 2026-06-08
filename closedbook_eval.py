@@ -56,32 +56,135 @@ def load_webqsp_gold(gold_file):
     return gold
 
 
-def load_cwq_gold(gold_file, use_labels):
+def collect_cwq_answer_ids(data):
+    answer_ids = []
+    seen = set()
+    for item in data:
+        for ans in item.get("answer", []):
+            if (
+                isinstance(ans, str)
+                and ans.startswith(("m.", "g."))
+                and ans not in seen
+            ):
+                seen.add(ans)
+                answer_ids.append(ans)
+    return answer_ids
+
+
+def load_entity_names_from_file(entity_list_file, target_ids):
+    names = {}
+    if not entity_list_file:
+        return names
+    if not os.path.exists(entity_list_file):
+        raise FileNotFoundError(f"Entity list file not found: {entity_list_file}")
+
+    with open(entity_list_file, "r", encoding="utf-8") as f:
+        for line in tqdm(f, desc="Loading entity names"):
+            cols = line.rstrip("\n").split("\t")
+            if len(cols) < 2:
+                continue
+            mid, name = cols[0], cols[1]
+            if mid in target_ids and name:
+                names[mid] = name
+                if len(names) == len(target_ids):
+                    break
+
+    return names
+
+
+def query_one_label_with_odbc(mid):
+    import executor.sparql_executor as se
+
+    if se.odbc_conn is None:
+        se.initialize_odbc_connection()
+
+    queries = [
+        f"""
+SPARQL
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ns: <http://rdf.freebase.com/ns/>
+SELECT DISTINCT ?label WHERE {{
+  ns:{mid} rdfs:label ?label .
+  FILTER (langMatches(lang(?label), "EN"))
+}}
+LIMIT 1
+""",
+        f"""
+SPARQL
+PREFIX ns: <http://rdf.freebase.com/ns/>
+SELECT DISTINCT ?label WHERE {{
+  ns:{mid} ns:type.object.name ?label .
+}}
+LIMIT 1
+""",
+    ]
+
+    for query in queries:
+        try:
+            with se.odbc_conn.cursor() as cursor:
+                cursor.execute(query)
+                rows = cursor.fetchmany(10)
+        except Exception:
+            continue
+
+        for row in rows:
+            if row and row[0] is not None:
+                return str(row[0])
+
+    return None
+
+
+def load_entity_names_from_odbc(target_ids):
+    names = {}
+    missing = 0
+
+    for mid in tqdm(target_ids, desc="Loading ODBC entity labels"):
+        label = query_one_label_with_odbc(mid)
+        if label:
+            names[mid] = label
+        else:
+            missing += 1
+
+    print(
+        "ODBC label map:",
+        f"total={len(target_ids)}",
+        f"hit={len(names)}",
+        f"miss={missing}",
+    )
+    return names
+
+
+def load_cwq_gold(gold_file, use_labels, entity_list_file=None):
     with open(gold_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     gold = {}
+    answer_ids = collect_cwq_answer_ids(data)
+    entity_name_map = load_entity_names_from_file(
+        entity_list_file,
+        answer_ids,
+    )
 
-    get_label = None
     if use_labels:
-        from executor.sparql_executor import get_label_with_odbc
+        missing_ids = [mid for mid in answer_ids if mid not in entity_name_map]
+        entity_name_map.update(load_entity_names_from_odbc(missing_ids))
 
-        get_label = get_label_with_odbc
+    unresolved = 0
 
     for item in tqdm(data, desc="Loading CWQ gold"):
         answers = []
         for ans in item.get("answer", []):
             value = ans
-            if get_label is not None and isinstance(ans, str) and ans.startswith(("m.", "g.")):
-                try:
-                    label = get_label(ans)
-                    if label:
-                        value = label
-                except Exception:
-                    value = ans
+            if isinstance(ans, str) and ans in entity_name_map:
+                value = entity_name_map[ans]
+            elif isinstance(ans, str) and ans.startswith(("m.", "g.")):
+                unresolved += 1
             answers.append(value)
 
         gold[item["ID"]] = [answers]
+
+    if unresolved:
+        print(f"Warning: {unresolved} CWQ gold answers remain unresolved MIDs.")
 
     return gold
 
@@ -173,12 +276,21 @@ def main():
     parser.add_argument("--pred_file", required=True)
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--cwq_use_labels", action="store_true")
+    parser.add_argument(
+        "--cwq_entity_list_file",
+        default=None,
+        help="Optional Freebase entity list file for mapping CWQ answer MIDs to names.",
+    )
     args = parser.parse_args()
 
     if args.dataset == "WebQSP":
         gold = load_webqsp_gold(args.gold_file)
     else:
-        gold = load_cwq_gold(args.gold_file, use_labels=args.cwq_use_labels)
+        gold = load_cwq_gold(
+            args.gold_file,
+            use_labels=args.cwq_use_labels,
+            entity_list_file=args.cwq_entity_list_file,
+        )
 
     metrics, rows = evaluate(args.pred_file, gold)
 
